@@ -20,8 +20,8 @@ A Streamlit-based dashboard for analyzing and backtesting algorithmic trading st
 
 ### 1. Clone the repository
 ```bash
-git clone https://github.com/YOUR_USERNAME/quant-stockmarket-analyzer.git
-cd quant-stockmarket-analyzer
+git clone https://github.com/MarketSignalWorks/market.analyzer.git
+cd market.analyzer
 ```
 
 ### 2. Create a virtual environment
