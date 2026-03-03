@@ -1,0 +1,2 @@
+-- Example SQL queries for performance reporting
+-- TODO: Add JOINs, aggregations, filtering queries
