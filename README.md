@@ -26,7 +26,8 @@ cd market.analyzer
 
 ### 2. Create a virtual environment
 ```bash
-python -m venv venv
+windows: python -m venv venv
+mac: python3 -m venv venv
 ```
 
 **Activate it:**
@@ -41,7 +42,8 @@ pip install streamlit plotly requests pandas
 
 ### 4. Run the frontend
 ```bash
-python -m streamlit run frontend/streamlit_app.py
+windows: python -m streamlit run frontend/streamlit_app.py
+mac: python3 -m streamlit run frontend/streamlit_app.py
 ```
 
 The app will open at **http://localhost:8501**
