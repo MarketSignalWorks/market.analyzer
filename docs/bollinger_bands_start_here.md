@@ -2,15 +2,17 @@
 
 ## Pick Your Task
 
-Read the descriptions below and claim one. Tasks 1 and 2 can start immediately. Tasks 3, 4, and 5 have dependencies — check the dependency chart at the bottom.
+Read the descriptions below and claim one. Persons 1 and 4 can start immediately. Check the dependency chart at the bottom before you begin.
 
-| Task | What You'll Do | File | Difficulty | Can Start Now? |
-|------|---------------|------|------------|----------------|
-| **1 — Data Fetcher** | Write a function that downloads stock price data from Yahoo Finance | `backend/data/fetcher.py` | Easiest | Yes |
-| **2 — BB Math** | Write the Bollinger Bands formula (rolling average + standard deviation) | `backend/strategies/bollinger_bands.py` | Easy | Yes |
-| **3 — Signal Logic** | Build the strategy class that decides when to buy, sell, or hold | `backend/strategies/bollinger_bands.py` | Medium | After Task 2 |
-| **4 — BB Chart** | Create a Plotly candlestick chart with band lines and signal markers | `frontend/ui/charts.py` | Medium | After Task 3 |
-| **5 — Streamlit Integration** | Wire everything into the Strategy Builder page so it runs in the browser | `frontend/streamlit_app.py` | Medium-Hard | After Tasks 1–4 |
+| Person | What You'll Do | File(s) | Difficulty | Can Start Now? |
+|--------|---------------|---------|------------|----------------|
+| **1 — Data + BB Math** | Download stock data from Yahoo Finance AND write the Bollinger Bands formula | `backend/data/fetcher.py` + `backend/strategies/bollinger_bands.py` | Medium | Yes |
+| **2 — Signal Logic** | Build the strategy class that detects band crossovers and outputs buy/sell/hold | `backend/strategies/bollinger_bands.py` (below Person 1's code) | Medium | After Person 1 |
+| **3 — BB Chart** | Create a Plotly candlestick chart with band lines and signal markers | `frontend/ui/charts.py` | Medium | After Person 2 |
+| **4 — Streamlit UI** | Build the input controls, layout, and columns on the Strategy Builder page | `frontend/streamlit_app.py` | Medium | Yes |
+| **5 — Streamlit Wiring** | Connect all the modules together — imports, button logic, error handling, session state | `frontend/streamlit_app.py` (builds on Person 4's UI) | Medium | After Persons 1–4 |
+
+**Note:** Persons 4 and 5 both work in `streamlit_app.py`. Person 4 pushes their UI code first, then Person 5 pulls and wires the backend into it. Coordinate so you don't get merge conflicts.
 
 ---
 
@@ -33,7 +35,11 @@ Lower Band  = Middle Band − (2 × 20-day rolling standard deviation)
 
 ---
 
-## Task 1 — Data Fetcher
+## Person 1 — Data Fetcher + BB Math
+
+You have two parts. Do the data fetcher first, then the BB math.
+
+### Part A: Data Fetcher
 
 **File:** `backend/data/fetcher.py`
 
@@ -56,9 +62,7 @@ def fetch_ohlcv(symbol: str, start_date: str, end_date: str) -> pd.DataFrame:
 - [yfinance docs](https://pypi.org/project/yfinance/)
 - [yfinance GitHub](https://github.com/ranaroussi/yfinance)
 
----
-
-## Task 2 — Bollinger Bands Math
+### Part B: Bollinger Bands Math
 
 **File:** `backend/strategies/bollinger_bands.py` (create this file)
 
@@ -81,18 +85,20 @@ def compute_bollinger_bands(close: pd.Series, window: int = 20, num_std: float =
 **Resources:**
 - [pandas rolling() docs](https://pandas.pydata.org/docs/reference/api/pandas.Series.rolling.html)
 
+**Push both parts before Person 2 starts.**
+
 ---
 
-## Task 3 — Signal Generation
+## Person 2 — Signal Logic
 
-**File:** `backend/strategies/bollinger_bands.py` (same file as Task 2)
+**File:** `backend/strategies/bollinger_bands.py` (same file as Person 1 — add your code below their `compute_bollinger_bands` function)
 
 **What to build:** A class called `BollingerBandsStrategy` that extends `BaseStrategy` from `backend/strategies/base.py`. It must implement the `generate_signals()` method.
 
 **Requirements:**
 - Constructor takes `window` (int, default 20) and `num_std` (float, default 2.0)
 - `generate_signals()` accepts a DataFrame with at minimum a `Close` column
-- Use Task 2's `compute_bollinger_bands()` function to get the bands
+- Use Person 1's `compute_bollinger_bands()` function to get the bands
 - Add four new columns to the DataFrame: `middle`, `upper`, `lower`, `signal`
 - Signal logic uses **crossover detection**: compare today's close to today's band AND yesterday's close to yesterday's band to detect the moment price crosses a band
   - BUY (1): price was above or at the lower band yesterday, but dropped below it today
@@ -110,11 +116,11 @@ def compute_bollinger_bands(close: pd.Series, window: int = 20, num_std: float =
 
 ---
 
-## Task 4 — Bollinger Bands Chart
+## Person 3 — Bollinger Bands Chart
 
 **File:** `frontend/ui/charts.py`
 
-**What to build:** A function called `plot_bollinger_bands` that takes the DataFrame output from Task 3 and returns a Plotly `Figure` object showing:
+**What to build:** A function called `plot_bollinger_bands` that takes the DataFrame output from Person 2 and returns a Plotly `Figure` object showing:
 
 1. **Candlestick chart** of the price data (Open, High, Low, Close)
 2. **Three band lines** overlaid on the chart:
@@ -146,43 +152,67 @@ def plot_bollinger_bands(data: pd.DataFrame) -> go.Figure:
 
 ---
 
-## Task 5 — Streamlit Integration
+## Person 4 — Streamlit UI Layout
 
 **File:** `frontend/streamlit_app.py`
 
-**What to build:** Add a Bollinger Bands section to the existing Strategy Builder page. Do **not** remove or break any existing code — add yours below it.
+**What to build:** Add the Bollinger Bands UI controls to the Strategy Builder page. You are building the **layout only** — Person 5 will wire it to the backend.
+
+**Where to add it:** Inside the `elif page == "⚡ Strategy Builder":` block, at the bottom before the next `elif`. Do **not** remove or break any existing code.
 
 **Requirements:**
-- Add the section inside the `elif page == "⚡ Strategy Builder":` block, at the bottom before the next `elif`
+- Add a section header and description for "Bollinger Bands Strategy"
+- Create two columns:
+  - Left column: symbol text input (default "SPY"), start date picker, end date picker
+  - Right column: window slider (5–50, default 20), std dev slider (1.0–3.0, default 2.0), initial capital input
+- Add a "Run Bollinger Bands" button (primary style)
+- Use unique `key` parameters on every widget (e.g. `key="bb_symbol"`) to avoid Streamlit duplicate key errors
+- Add placeholder text below the button: `st.info("Wiring in progress — Person 5 will connect this.")`
+
+**Verify your work:** Run `streamlit run frontend/streamlit_app.py`, go to Strategy Builder, and confirm the input controls and button render correctly.
+
+**Push your code before Person 5 starts.**
+
+**Resources:**
+- [Streamlit widgets](https://docs.streamlit.io/develop/api-reference/widgets)
+- [Streamlit columns layout](https://docs.streamlit.io/develop/api-reference/layout/st.columns)
+
+---
+
+## Person 5 — Streamlit Wiring
+
+**File:** `frontend/streamlit_app.py` (builds on Person 4's UI — pull their code first)
+
+**What to build:** Connect Person 4's UI to the backend modules so clicking the button actually runs the strategy.
+
+**Requirements:**
 - Add `sys.path` setup so Python can find the backend modules from the frontend directory
-- Create input controls in two columns:
-  - Left: symbol text input (default "SPY"), start date picker, end date picker
-  - Right: window slider (5–50, default 20), std dev slider (1.0–3.0, default 2.0), initial capital input
-- A "Run Bollinger Bands" button that when clicked:
-  1. Calls Task 1's `fetch_ohlcv()` to get price data
-  2. Calls Task 3's `BollingerBandsStrategy.generate_signals()` to compute signals
-  3. Calls Task 4's `plot_bollinger_bands()` to render the chart via `st.plotly_chart()`
-  4. Shows metric cards: symbol name, data point count, number of buy signals, number of sell signals
-  5. Saves the signal DataFrame to `st.session_state['bb_signals']` for the backtesting team
+- Inside the button click handler:
+  1. Import and call Person 1's `fetch_ohlcv()` to get price data
+  2. Import and call Person 2's `BollingerBandsStrategy.generate_signals()` to compute signals
+  3. Import and call Person 3's `plot_bollinger_bands()` to render the chart via `st.plotly_chart()`
+  4. Show metric cards using `st.metric()`: symbol name, data point count, number of buy signals, number of sell signals
+  5. Save the signal DataFrame to `st.session_state['bb_signals']` for the backtesting team
 - Handle errors gracefully — show `st.error()` if data fetch fails or a module isn't implemented yet
+- Remove Person 4's placeholder `st.info()` message
 
 **Verify your work:** Run `streamlit run frontend/streamlit_app.py`, go to Strategy Builder, enter SPY, click Run. The chart and metrics should appear.
 
 **Resources:**
 - [Streamlit st.plotly_chart](https://docs.streamlit.io/develop/api-reference/charts/st.plotly_chart)
 - [Streamlit session_state](https://docs.streamlit.io/develop/api-reference/caching-and-state/st.session_state)
-- [Streamlit widgets](https://docs.streamlit.io/develop/api-reference/widgets)
+- [Python sys.path for imports](https://docs.python.org/3/library/sys.html#sys.path)
 
 ---
 
 ## Dependency Chart
 
 ```
-Task 1 (Data Fetcher) ────────────────────────────────────────► Task 5 (Streamlit)
-Task 2 (BB Math) ──────► Task 3 (Signals) ──► Task 4 (Chart) ──► Task 5 (Streamlit)
+Person 1 (Data + Math) ──► Person 2 (Signals) ──► Person 3 (Chart) ──► Person 5 (Wiring)
+Person 4 (UI Layout) ──────────────────────────────────────────────► Person 5 (Wiring)
 ```
 
-Tasks 1 and 2 start now in parallel. Everything flows into Task 5 at the end.
+Persons 1 and 4 can start right now in parallel. Person 5 goes last — they connect everything.
 
 ---
 
