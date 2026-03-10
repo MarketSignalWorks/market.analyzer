@@ -1,4 +1,4 @@
-# Bollinger Bands — Signal Team Implementation Guide
+# Bollinger Bands — Reference Guide
 
 ## What Are We Building?
 
