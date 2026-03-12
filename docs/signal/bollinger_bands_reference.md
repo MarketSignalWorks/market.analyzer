@@ -1,21 +1,63 @@
 # Bollinger Bands — Reference Guide
 
-## What Are We Building?
-
-This document is your complete reference for implementing the **Bollinger Bands trading signal** in the STRATEX codebase. It covers the algorithm, your specific task, code examples, and resources to unblock yourself.
-
-**You do not need to implement the backtesting engine, equity curve, or trade history — that is handled by a separate team.** Your deliverable is the signal generation logic and the Bollinger Bands price chart.
+This is the **answer key**. Try to solve your task using the Start Here doc first. Come here only if you're stuck.
 
 ---
 
-## Understanding the Bollinger Bands Algorithm
+## Git Workflow Quick Reference
+
+| Person | Branch | Merge Order |
+|--------|--------|-------------|
+| 1 | `data-math` | Merges 1st |
+| 2 | `signal-logic` | Merges 2nd (after Person 1) |
+| 3 | `charts` | Merges 3rd (after Person 2) |
+| 4 | `streamlit-ui` | Merges last (after Person 3) |
+
+```bash
+# Switch to your branch
+git checkout your-branch-name
+
+# Pull latest main before starting (especially Persons 2-4)
+git pull origin main
+
+# When done — push and open a PR
+git add .
+git commit -m "describe what you did"
+git push origin your-branch-name
+```
+
+---
+
+## Codebase Structure
+
+```
+market.analyzer/
+├── backend/
+│   ├── data/
+│   │   └── fetcher.py             ← Person 1 (Part A)
+│   ├── strategies/
+│   │   ├── base.py                ← READ THIS — base class you must extend
+│   │   └── bollinger_bands.py     ← Person 1 (Part B) + Person 2
+├── frontend/
+│   ├── streamlit_app.py           ← Person 4
+│   └── ui/
+│       └── charts.py              ← Person 3
+└── docs/
+    └── signal/
+        ├── bollinger_bands_start_here.md   ← Task specs (no code)
+        └── bollinger_bands_reference.md    ← You are here (full code)
+```
+
+---
+
+## Understanding the Algorithm
 
 Bollinger Bands are a volatility indicator invented by John Bollinger. They consist of three lines drawn on top of a price chart:
 
 ```
 Middle Band = Rolling 20-period average (SMA) of closing price
-Upper Band  = Middle Band + (2 × rolling 20-period standard deviation)
-Lower Band  = Middle Band − (2 × rolling 20-period standard deviation)
+Upper Band  = Middle Band + (2 x rolling 20-period standard deviation)
+Lower Band  = Middle Band - (2 x rolling 20-period standard deviation)
 ```
 
 As price volatility increases, the bands widen. As it decreases, they contract.
@@ -42,43 +84,17 @@ As price volatility increases, the bands widen. As it decreases, they contract.
   ─────────────────────────────────
 ```
 
-**Resources to read before you start:**
+**Further reading:**
 - [Bollinger Bands explained (Investopedia)](https://www.investopedia.com/terms/b/bollingerbands.asp)
 - [Original reference by John Bollinger](https://www.bollingerbands.com/bollinger-bands)
 
 ---
 
-## Codebase Structure — What You Need to Know
+## Person 1 Reference — Data Fetcher + BB Math
 
-```
-market.analyzer/
-├── backend/
-│   ├── data/
-│   │   └── fetcher.py             ← Person 1 works here
-│   ├── strategies/
-│   │   ├── base.py                ← READ THIS — base class you must extend
-│   │   └── bollinger_bands.py     ← Person 2 & 3 work here (new file to create)
-├── frontend/
-│   ├── streamlit_app.py           ← Person 5 works here
-│   └── ui/
-│       └── charts.py              ← Person 4 works here
-└── docs/
-    └── bollinger_bands_guide.md   ← You are here
-```
+### Part A: Data Fetcher
 
-**Before writing any code, read `backend/strategies/base.py`.** Every strategy must subclass `BaseStrategy` and implement `generate_signals()`. Your code must follow that contract.
-
----
-
-## Task 1 — Data Fetcher
 **File:** `backend/data/fetcher.py`
-
-### What You're Building
-A function that downloads historical stock price data using the `yfinance` library (already listed in `requirements.txt` — no install needed beyond `pip install -r requirements.txt`).
-
-### Your Implementation
-
-Replace the placeholder comment in `fetcher.py` with:
 
 ```python
 """
@@ -112,10 +128,7 @@ def fetch_ohlcv(symbol: str, start_date: str, end_date: str) -> pd.DataFrame:
     return df
 ```
 
-### How to Test Your Work
-
-Create a temporary test script (e.g. `test_fetcher.py`) in the project root:
-
+**Test it:**
 ```python
 from backend.data.fetcher import fetch_ohlcv
 
@@ -125,24 +138,9 @@ print(f"Shape: {data.shape}")       # Should be roughly (500, 5)
 print(data.columns.tolist())        # Should be ['Open', 'High', 'Low', 'Close', 'Volume']
 ```
 
-Run it with: `python test_fetcher.py`
+### Part B: BB Math
 
-### Resources
-- [yfinance documentation](https://pypi.org/project/yfinance/)
-- [yfinance GitHub with usage examples](https://github.com/ranaroussi/yfinance)
-- [pandas DataFrame overview](https://pandas.pydata.org/docs/user_guide/dsintro.html#dataframe)
-
----
-
-## Task 2 — Bollinger Bands Math
-**File:** `backend/strategies/bollinger_bands.py` (you will create this file)
-
-### What You're Building
-A standalone Python function that computes the three Bollinger Band lines from a pandas price Series. Keep it as a pure function — no class, no side effects, just math in and bands out.
-
-### Your Implementation
-
-Create the file `backend/strategies/bollinger_bands.py` and add:
+**File:** `backend/strategies/bollinger_bands.py` (create this file)
 
 ```python
 """
@@ -176,41 +174,26 @@ def compute_bollinger_bands(
     return middle, upper, lower
 ```
 
-### How to Test Your Work
-
+**Test it:**
 ```python
 import pandas as pd
 import numpy as np
 from backend.strategies.bollinger_bands import compute_bollinger_bands
 
-# Simulated price data
 prices = pd.Series(np.random.uniform(100, 200, 100))
 middle, upper, lower = compute_bollinger_bands(prices)
 
-# Verify the math — upper must always be above middle, middle above lower
 non_nan = ~middle.isna()
 assert (upper[non_nan] > middle[non_nan]).all(), "Upper must be above middle"
 assert (middle[non_nan] > lower[non_nan]).all(), "Middle must be above lower"
 print("All checks passed!")
-print(middle.dropna().head())
 ```
-
-### Resources
-- [pandas rolling().mean() docs](https://pandas.pydata.org/docs/reference/api/pandas.Series.rolling.html)
-- [pandas rolling().std() docs](https://pandas.pydata.org/docs/reference/api/pandas.core.window.rolling.Rolling.std.html)
-- [What is standard deviation? (visual explanation)](https://www.khanacademy.org/math/statistics-probability/summarizing-quantitative-data/variance-standard-deviation-population/a/calculating-standard-deviation-step-by-step)
 
 ---
 
-## Task 3 — Signal Generation (Strategy Class)
-**File:** `backend/strategies/bollinger_bands.py` (continue in the same file as Task 2)
+## Person 2 Reference — Signal Logic
 
-### What You're Building
-The `BollingerBandsStrategy` class. It must extend `BaseStrategy` (read that file first!) and use the `compute_bollinger_bands()` function from Task 2 to produce a DataFrame with a `signal` column.
-
-### Your Implementation
-
-Add this **below** the `compute_bollinger_bands` function in the same file:
+**File:** `backend/strategies/bollinger_bands.py` (add below Person 1's code)
 
 ```python
 from backend.strategies.base import BaseStrategy
@@ -267,8 +250,7 @@ class BollingerBandsStrategy(BaseStrategy):
         return data
 ```
 
-### How to Test Your Work
-
+**Test it:**
 ```python
 from backend.data.fetcher import fetch_ohlcv
 from backend.strategies.bollinger_bands import BollingerBandsStrategy
@@ -287,24 +269,11 @@ print("\nSample buy rows:")
 print(buys[['Close', 'lower', 'signal']].head())
 ```
 
-You should see some buy and sell signals. If you see 0 of both, something is wrong with the crossover logic — re-read the `shift(1)` logic carefully.
-
-### Resources
-- [pandas shift() — compare a row to the previous one](https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.shift.html)
-- [Boolean indexing in pandas](https://pandas.pydata.org/docs/user_guide/indexing.html#boolean-indexing)
-- [Python abstract base classes (ABC)](https://docs.python.org/3/library/abc.html)
-
 ---
 
-## Task 4 — Bollinger Bands Chart
+## Person 3 Reference — BB Chart
+
 **File:** `frontend/ui/charts.py`
-
-### What You're Building
-A Plotly function that renders a candlestick price chart with the three Bollinger Band lines overlaid, plus green triangle markers for buy signals and red triangle markers for sell signals. This is what users will see in the browser.
-
-### Your Implementation
-
-Replace the placeholder comment in `charts.py` with:
 
 ```python
 """
@@ -400,8 +369,7 @@ def plot_bollinger_bands(data: pd.DataFrame) -> go.Figure:
     return fig
 ```
 
-### How to Test Your Work (standalone, no Streamlit)
-
+**Test it:**
 ```python
 from backend.data.fetcher import fetch_ohlcv
 from backend.strategies.bollinger_bands import BollingerBandsStrategy
@@ -412,40 +380,16 @@ strat   = BollingerBandsStrategy()
 signals = strat.generate_signals(data)
 
 fig = plot_bollinger_bands(signals)
-fig.show()   # This opens an interactive chart in your default browser
+fig.show()   # Opens an interactive chart in your browser
 ```
-
-What to verify:
-- Three band lines are visible on the chart
-- Green triangle markers appear near buy signal dates
-- Red triangle markers appear near sell signal dates
-- Dark background styling matches the app
-
-### Resources
-- [Plotly candlestick chart docs](https://plotly.com/python/candlestick-charts/)
-- [Plotly Scatter trace (lines and markers)](https://plotly.com/python/line-and-scatter/)
-- [Plotly fill options (tonexty)](https://plotly.com/python/filled-area-plots/)
-- [Plotly dark theme / layout options](https://plotly.com/python/templates/)
 
 ---
 
-## Task 5 — Streamlit Integration
+## Person 4 Reference — Streamlit Integration
+
 **File:** `frontend/streamlit_app.py`
 
-### What You're Building
-Add a working Bollinger Bands runner to the existing Strategy Builder page. Users pick a symbol, adjust BB parameters with sliders, click a button, and the chart + signal summary appears inline. **Do not remove or break any existing code** — find the correct location and add your section there.
-
-### Where to Add It
-
-Open `streamlit_app.py` and find this block:
-
-```python
-elif page == "⚡ Strategy Builder":
-```
-
-Scroll to the **bottom** of that section (look for the blank line just before the next `elif page ==`). Insert your code there, keeping the same indentation level as the rest of the Strategy Builder block.
-
-### Your Implementation
+Add this inside the `elif page == "⚡ Strategy Builder":` block, at the bottom before the next `elif`:
 
 ```python
     # -------------------------------------------------------------------------
@@ -506,49 +450,31 @@ Scroll to the **bottom** of that section (look for the blank line just before th
 
             except Exception as e:
                 st.error(f"Error: {e}")
-                st.info("Make sure Tasks 1–4 are all implemented before running this.")
+                st.info("Make sure Persons 1-3 have all pushed their code before running this.")
 ```
 
-### How to Run the Full App
-
+**Test it:**
 ```bash
-# From the project root directory:
 streamlit run frontend/streamlit_app.py
 ```
 
-Open the browser, go to **Strategy Builder** in the sidebar, scroll to the **Bollinger Bands Strategy** section.
-
-### Troubleshooting
-
-| Error | Likely Cause | Fix |
-|---|---|---|
-| `ModuleNotFoundError: backend.data.fetcher` | Python can't find the module | Make sure `__init__.py` exists in `backend/` and `backend/data/` |
-| `No data found for 'XYZ'` | Bad ticker symbol or date range | Try `SPY` with dates after 2010 |
-| `KeyError: 'Close'` | yfinance multi-level column issue | Person 1 should add the `droplevel(1)` fix shown in Task 1 |
-| Chart is blank / no signals showing | Signal logic bug | Check Person 3's crossover conditions with a print statement |
-
-### Resources
-- [Streamlit st.plotly_chart docs](https://docs.streamlit.io/develop/api-reference/charts/st.plotly_chart)
-- [Streamlit session_state guide](https://docs.streamlit.io/develop/api-reference/caching-and-state/st.session_state)
-- [Streamlit input widgets reference](https://docs.streamlit.io/develop/api-reference/widgets)
-- [How to import modules from a parent directory in Python](https://docs.python.org/3/reference/import.html)
-
 ---
 
-## Integration Order — Who Depends on Who
+## Integration Order
 
 ```
-Task 1 (Data Fetcher) ────────────────────────────────────────────► Task 5 (Streamlit)
-Task 2 (BB Math) ──────► Task 3 (Signals) ──► Task 4 (Chart) ──► Task 5 (Streamlit)
+Person 1 (Data + Math) ──► Person 2 (Signals) ──► Person 3 (Chart) ──┐
+                                                                      ├──► Person 4 (Wiring)
+                                                   Person 4 (UI) ────┘
 ```
 
-**Tasks 1 and 2 can start in parallel right now.** Task 3 needs Task 2 done first. Task 4 needs Task 3 done. Task 5 integrates everything — start it last.
+**Persons 1 and 4 can start in parallel right now.** Person 4 builds the UI layout first, then wires the backend once Persons 1-3 are done.
 
 ---
 
 ## Handoff to Backtesting Team
 
-Once Task 5 is working, `st.session_state['bb_signals']` holds a DataFrame with these columns:
+Once done, `st.session_state['bb_signals']` holds a DataFrame with:
 
 | Column | Type | Description |
 |---|---|---|
@@ -558,4 +484,15 @@ Once Task 5 is working, `st.session_state['bb_signals']` holds a DataFrame with 
 | `lower` | float | Lower band value |
 | `signal` | int | **1** = buy, **-1** = sell, **0** = hold |
 
-The backtesting team reads the `signal` column to simulate trades. This contract is defined in `backend/strategies/base.py` — the `generate_signals()` return format. Do not change the column name or encoding.
+The backtesting team reads the `signal` column to simulate trades. This contract is defined in `backend/strategies/base.py`.
+
+---
+
+## Troubleshooting
+
+| Error | Likely Cause | Fix |
+|---|---|---|
+| `ModuleNotFoundError: backend.data.fetcher` | Python can't find the module | Make sure `__init__.py` exists in `backend/` and `backend/data/` |
+| `No data found for 'XYZ'` | Bad ticker symbol or date range | Try `SPY` with dates after 2010 |
+| `KeyError: 'Close'` | yfinance multi-level column issue | Person 1 should add the `droplevel(1)` fix |
+| Chart is blank / no signals showing | Signal logic bug | Check Person 2's crossover conditions with a print statement |
