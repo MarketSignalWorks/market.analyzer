@@ -175,7 +175,7 @@ def compute_annualized_volatility(
     if len(daily_returns) < 2:
         return 0.0
     
-    volatility = np.std(daily_returns) * np.sqrt(252.0) * 100.0
+    volatility = np.std(daily_returns, ddof=1) * np.sqrt(252.0) * 100.0
     return volatility
 
 
@@ -205,7 +205,7 @@ def compute_sharpe_ratio(
         return 0.0
     
     mean_return = np.mean(daily_returns)
-    std_return = np.std(daily_returns)
+    std_return = np.std(daily_returns, ddof=1)
     
     if std_return == 0:
         return 0.0
@@ -247,7 +247,7 @@ def compute_sortino_ratio(
         # No losses, return a very high sortino ratio
         return 100.0
     
-    downside_volatility = np.std(negative_returns)
+    downside_volatility = np.std(negative_returns, ddof=1)
     
     if downside_volatility == 0:
         return 100.0
