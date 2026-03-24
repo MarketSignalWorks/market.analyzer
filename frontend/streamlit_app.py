@@ -385,66 +385,6 @@ elif page == "⚡ Strategy Builder":
                     st.session_state['backtest_result'] = result
                     st.success(f"Backtest completed in {result.get('execution_time_ms', 0)}ms! Go to Backtest Results to view.")
                     st.cache_data.clear()
-    
-    # -------------------------------------------------------------------------
-    # BOLLINGER BANDS — Standalone Runner (no Flask backend needed)
-    # -------------------------------------------------------------------------
-    st.markdown("---")
-    st.subheader("Bollinger Bands Strategy")
-    st.markdown("Fetch live price data and compute BB signals directly in the browser.")
-
-    import sys, os
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-
-    col_left, col_right = st.columns(2)
-
-    with col_left:
-        bb_symbol  = st.text_input("Symbol (e.g. SPY, AAPL, TSLA)", value="SPY", key="bb_symbol")
-        bb_start   = st.date_input("Start Date", value=datetime.now() - timedelta(days=730), key="bb_start")
-        bb_end     = st.date_input("End Date",   value=datetime.now(), key="bb_end")
-
-    with col_right:
-        bb_window  = st.slider("Window (periods)", min_value=5,   max_value=50,  value=20,  key="bb_window")
-        bb_num_std = st.slider("Num Std Deviations", min_value=1.0, max_value=3.0, value=2.0, step=0.1, key="bb_std")
-        bb_capital = st.number_input("Initial Capital ($)", value=10000, min_value=1000, step=1000, key="bb_capital")
-
-    if st.button("▶ Run Bollinger Bands", type="primary", key="bb_run"):
-        with st.spinner(f"Fetching {bb_symbol} data and computing signals..."):
-            try:
-                from backend.data.fetcher import fetch_ohlcv
-                from backend.strategies.bollinger_bands import BollingerBandsStrategy
-                from frontend.ui.charts import plot_bollinger_bands
-
-                # Step 1: Fetch OHLCV data
-                data = fetch_ohlcv(bb_symbol, bb_start.isoformat(), bb_end.isoformat())
-
-                if data.empty:
-                    st.error(f"No data found for '{bb_symbol}'. Check the ticker symbol and date range.")
-                else:
-                    # Step 2: Run the BB strategy to get signals
-                    strategy = BollingerBandsStrategy(window=bb_window, num_std=bb_num_std)
-                    signals  = strategy.generate_signals(data)
-
-                    # Step 3: Render the chart
-                    st.plotly_chart(plot_bollinger_bands(signals), use_container_width=True)
-
-                    # Step 4: Show a signal summary
-                    n_buys  = int((signals['signal'] ==  1).sum())
-                    n_sells = int((signals['signal'] == -1).sum())
-
-                    c1, c2, c3, c4 = st.columns(4)
-                    c1.metric("Symbol",       bb_symbol.upper())
-                    c2.metric("Data Points",  len(signals))
-                    c3.metric("Buy Signals",  n_buys)
-                    c4.metric("Sell Signals", n_sells)
-
-                    # Step 5: Save signal DataFrame for the backtesting team
-                    st.session_state['bb_signals'] = signals
-                    st.success("Signal data saved to session state under key `bb_signals`.")
-
-            except Exception as e:
-                st.error(f"Error: {e}")
-                st.info("Make sure Persons 1-3 have all pushed their code before running this.")
 
 
 # =============================================================================
