@@ -386,6 +386,114 @@ elif page == "⚡ Strategy Builder":
                     st.success(f"Backtest completed in {result.get('execution_time_ms', 0)}ms! Go to Backtest Results to view.")
                     st.cache_data.clear()
 
+    # =========================================================================
+    # BOLLINGER BANDS STRATEGY
+    # =========================================================================
+    st.markdown("---")
+    st.subheader("Bollinger Bands Strategy")
+    st.markdown(
+        "Trade mean-reversion signals using Bollinger Bands: "
+        "buy when price touches the lower band and sell when it reaches the upper band."
+    )
+
+    bb_left, bb_right = st.columns(2)
+
+    with bb_left:
+        bb_symbol = st.text_input("Symbol", value="SPY", key="bb_symbol")
+        bb_start = st.date_input(
+            "Start Date",
+            value=datetime.now() - timedelta(days=730),
+            key="bb_start",
+        )
+        bb_end = st.date_input(
+            "End Date",
+            value=datetime.now(),
+            key="bb_end",
+        )
+
+    with bb_right:
+        bb_window = st.slider(
+            "Window (periods)",
+            min_value=5,
+            max_value=50,
+            value=20,
+            key="bb_window",
+        )
+        bb_std = st.slider(
+            "Std Dev Multiplier",
+            min_value=1.0,
+            max_value=3.0,
+            value=2.0,
+            step=0.1,
+            key="bb_std",
+        )
+        bb_capital = st.number_input(
+            "Initial Capital ($)",
+            value=10000,
+            min_value=1000,
+            step=1000,
+            key="bb_capital",
+        )
+
+    if st.button("Run Bollinger Bands", type="primary", key="bb_run"):
+        try:
+            import sys, os
+            sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+            from backend.data.fetcher import fetch_ohlcv
+            from backend.strategies.bollinger_bands import BollingerBandsStrategy
+            from frontend.ui.charts import plot_bollinger_bands
+
+        except ImportError as e:
+            st.error(f"Could not import a required module: {e}")
+            st.stop()
+
+        with st.spinner(f"Fetching {bb_symbol.upper()} data…"):
+            df = fetch_ohlcv(
+                bb_symbol.strip().upper(),
+                bb_start.isoformat(),
+                bb_end.isoformat(),
+            )
+
+        if df.empty:
+            st.error(
+                f"No data returned for **{bb_symbol.upper()}**. "
+                "Check the symbol or widen the date range."
+            )
+        else:
+            try:
+                strategy = BollingerBandsStrategy(window=bb_window, num_std=bb_std)
+                signals_df = strategy.generate_signals(df)
+            except NotImplementedError:
+                st.error("BollingerBandsStrategy.generate_signals() is not implemented yet.")
+                st.stop()
+            except Exception as e:
+                st.error(f"Signal generation failed: {e}")
+                st.stop()
+
+            # ── Save for backtesting team ──────────────────────────────
+            st.session_state["bb_signals"] = signals_df
+
+            # ── Metrics ───────────────────────────────────────────────
+            buy_signals  = int((signals_df["signal"] == 1).sum())
+            sell_signals = int((signals_df["signal"] == -1).sum())
+
+            m1, m2, m3, m4 = st.columns(4)
+            with m1:
+                st.metric("Symbol", bb_symbol.upper())
+            with m2:
+                st.metric("Data Points", len(signals_df))
+            with m3:
+                st.metric("Buy Signals",  buy_signals)
+            with m4:
+                st.metric("Sell Signals", sell_signals)
+
+            # ── Chart ─────────────────────────────────────────────────
+            st.markdown("---")
+            fig = plot_bollinger_bands(signals_df)
+            st.plotly_chart(fig, use_container_width=True)
+
+
 
 # =============================================================================
 # STRATEGY LIBRARY PAGE
