@@ -456,8 +456,8 @@ elif page == "⚡ Strategy Builder":
                     bb_end.isoformat(),
                 )
             
-            except NotImplementedError:
-                st.error("fetcher.fetch_ohlcv() is not implemented yet.")
+            except Exception as e:
+                st.error(f"data fetching failed: {e}")
                 st.stop()
 
         if df.empty:
