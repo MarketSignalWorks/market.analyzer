@@ -26,15 +26,15 @@ class BollingerBandsStrategy(BaseStrategy):
         data = data.copy()
 
         middle, upper, lower = compute_bollinger_bands(
-            close, self.window, self.num_std)
+            data["Close"], self.window, self.num_std)
         
         data["middle"] = middle
         data["upper"] = upper
         data["lower"] = lower
         signal = pd.Series(0, index = data.index)
         
-        buy_condition = (close.shift(1) >= lower.shift(1)) & (close < lower)
-        sell_condition = (close.shift(1) <= upper.shift(1)) & (close > upper)
+        buy_condition = (data["Close"].shift(1) >= lower.shift(1)) & (data["Close"] < lower)
+        sell_condition = (data["Close"].shift(1) <= upper.shift(1)) & (data["Close"] > upper)
         signal[buy_condition] = 1
         signal[sell_condition] = -1
         data['signal'] = signal
