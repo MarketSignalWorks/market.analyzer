@@ -449,11 +449,16 @@ elif page == "⚡ Strategy Builder":
             st.stop()
 
         with st.spinner(f"Fetching {bb_symbol.upper()} data…"):
-            df = fetch_ohlcv(
-                bb_symbol.strip().upper(),
-                bb_start.isoformat(),
-                bb_end.isoformat(),
-            )
+            try:
+                df = fetch_ohlcv(
+                    bb_symbol.strip().upper(),
+                    bb_start.isoformat(),
+                    bb_end.isoformat(),
+                )
+            
+            except NotImplementedError:
+                st.error("fetcher.fetch_ohlcv() is not implemented yet.")
+                st.stop()
 
         if df.empty:
             st.error(
