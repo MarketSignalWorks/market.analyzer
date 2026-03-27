@@ -4,8 +4,6 @@ import pandas as pd
 def plot_bollinger_bands(data: pd.DataFrame) -> go.Figure:
     fig = go.Figure()
 
-    fig = go.Figure()
-
     # Candlestick price bars
     fig.add_trace(go.Candlestick(
         x=data.index,
