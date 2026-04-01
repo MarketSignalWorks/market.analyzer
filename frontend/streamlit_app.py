@@ -499,6 +499,67 @@ elif page == "⚡ Strategy Builder":
             st.plotly_chart(fig, use_container_width=True)
 
 
+    # -------------------------------------------------------------------------
+    # RSI DIVERGENCE 
+    # -------------------------------------------------------------------------
+    st.markdown("---")
+    st.subheader("RSI Divergence Strategy")
+    st.markdown("Detect divergences between price and RSI momentum to catch early reversals.")
+
+    import sys, os
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
+    col_left, col_right = st.columns(2)
+
+    with col_left:
+        rsi_symbol = st.text_input("Symbol (e.g. SPY, AAPL, TSLA)", value="SPY", key="rsi_symbol")
+        rsi_start  = st.date_input("Start Date", value=datetime.now() - timedelta(days=1095), key="rsi_start")
+        rsi_end    = st.date_input("End Date",   value=datetime.now(), key="rsi_end")
+
+    with col_right:
+        rsi_period   = st.slider("RSI Period",           min_value=5,  max_value=30,  value=14, key="rsi_period")
+        rsi_div_win  = st.slider("Divergence Window",    min_value=3,  max_value=20,  value=5,  key="rsi_div_win")
+        rsi_ob       = st.slider("Overbought Threshold", min_value=60, max_value=90,  value=70, key="rsi_ob")
+        rsi_os       = st.slider("Oversold Threshold",   min_value=10, max_value=40,  value=30, key="rsi_os")
+
+    if st.button("▶ Run RSI Divergence", type="primary", key="rsi_run"):
+        with st.spinner(f"Fetching {rsi_symbol} data and computing RSI divergences..."):
+            try:
+                from backend.data.fetcher import fetch_ohlcv
+                from backend.strategies.rsi_divergence import RSIDivergenceStrategy
+                from frontend.ui.charts import plot_rsi_divergence
+
+                data = fetch_ohlcv(rsi_symbol, rsi_start.isoformat(), rsi_end.isoformat())
+
+                if data.empty:
+                    st.error(f"No data found for '{rsi_symbol}'. Check the ticker symbol and date range.")
+                else:
+                    strategy = RSIDivergenceStrategy(
+                        rsi_period=rsi_period,
+                        divergence_window=rsi_div_win,
+                        overbought=rsi_ob,
+                        oversold=rsi_os,
+                    )
+                    signals = strategy.generate_signals(data)
+
+                    st.plotly_chart(plot_rsi_divergence(signals), use_container_width=True)
+
+                    n_bullish = int((signals['signal'] ==  1).sum())
+                    n_bearish = int((signals['signal'] == -1).sum())
+
+                    c1, c2, c3, c4 = st.columns(4)
+                    c1.metric("Symbol",               rsi_symbol.upper())
+                    c2.metric("Data Points",          len(signals))
+                    c3.metric("Bullish Divergences",  n_bullish)
+                    c4.metric("Bearish Divergences",  n_bearish)
+
+                    st.session_state['rsi_signals'] = signals
+                    st.success("Signal data saved to session state under key `rsi_signals`.")
+
+            except Exception as e:
+                st.error(f"Error: {e}")
+
+
 
 # =============================================================================
 # STRATEGY LIBRARY PAGE
