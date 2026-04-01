@@ -28,6 +28,6 @@ def run_backtest(strategy, data, config, portfolio_class):
         value = portfolio.get_portfolio_value(price)
         equity_curve.append(value)
 
-    portfolio.close_open_position(data["Close"].iloc[-1], data.index[-1])
+    portfolio.force_close(data["Close"].iloc[-1], data.index[-1])
 
     return equity_curve, portfolio.get_trade_log()
