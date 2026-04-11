@@ -18,6 +18,7 @@ def compute_macd(
 
     
 def compute_features(data: pd.DataFrame) -> pd.DataFrame:
+    data = data.copy()
     data["macd_slope"] = data["macd"].diff()
     data["hist_slope"] = data["histogram"].diff()
     data["price_momentum"] = data['Close'].pct_change(5)
