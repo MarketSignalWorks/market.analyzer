@@ -6,6 +6,7 @@ Streamlit Frontend
 import streamlit as st
 import requests
 import pandas as pd
+import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
 from datetime import datetime, timedelta
@@ -560,6 +561,125 @@ elif page == "⚡ Strategy Builder":
                 st.error(f"Error: {e}")
 
 
+    # ------------------------------------------------------------
+    # MACD Crossover Strategy
+    # ------------------------------------------------------------
+
+    st.markdown("---")
+    st.subheader("MACD Crossover Strategy")
+    st.markdown("Measures the relationship between two exponential moving averages of price")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.subheader("Data Source")
+        macd_symbol = st.text_input("Symbol", value="SPY", key="macd_symbol")
+        macd_start = st.date_input("Start Date", key="macd_start")
+        macd_end = st.date_input("End Date", key="macd_end")
+
+    with col2:
+        st.subheader("Strategy Parameters")
+        macd_fast = st.slider("Fast Period", min_value=5, max_value=50, value=12, key="macd_fast")
+        macd_slow = st.slider("Slow Period", min_value=10, max_value=100, value=26, key="macd_slow")
+        macd_signal = st.slider("Signal Period", min_value=3, max_value=20, value=9, key="macd_signal")
+        macd_hist_thresh = st.slider("Histogram Threshold", min_value=0.0, max_value=1.0, value=0.0, step=0.01, key="macd_hist_thresh")
+        macd_zero_filter = st.checkbox("Zero-line filter", value=True, key="macd_zero_filter")
+        macd_cooldown = st.slider("Signal cooldown (bars)", min_value=0, max_value=20, value=5, key="macd_cooldown")
+        macd_regime_filter = st.checkbox("Regime filter (K-means)", value=True, key="macd_regime_filter")
+        macd_confidence = st.slider("ML confidence threshold", min_value=0.50, max_value=0.90, value=0.55, step=0.01, key="macd_confidence")
+        macd_ema_filter = st.checkbox("200 EMA trend filter", value=True, key="macd_ema_filter")
+
+
+    if macd_fast >= macd_slow:
+        st.warning("Fast period must be less than slow period.")
+
+
+    if st.button("Run MACD Crossover", type="primary", key="macd_run"):
+        st.write("Running MACD Crossover analysis...")
+
+        try:
+            from backend.data.fetcher import fetch_ohlcv
+            from backend.strategies.macd_crossover import MACDCrossoverStrategy
+            from frontend.ui.charts import plot_macd_crossover
+            
+            if macd_fast >= macd_slow:
+                st.error("Fast period must be less than slow period.")
+                st.stop()
+            data = fetch_ohlcv(macd_symbol, macd_start, macd_end)
+            if len(data) < 220:
+                st.error("Select a longer date range — at least 220 bars of data required for the 200 EMA to be meaningful. Try expanding your date range to cover 1+ year.")
+                st.stop()
+
+            split_idx = int(len(data) * 0.70)
+            train_data = data.iloc[:split_idx].copy()
+            test_data  = data.iloc[split_idx:].copy()
+
+            st.caption(f"Training: {train_data.index[0].date()} → {train_data.index[-1].date()} ({len(train_data)} bars) | Test: {test_data.index[0].date()} → {test_data.index[-1].date()} ({len(test_data)} bars)")
+
+            strategy = MACDCrossoverStrategy(
+            fast_period=macd_fast, slow_period=macd_slow,
+            signal_period=macd_signal, histogram_threshold=macd_hist_thresh,
+            zero_line_filter=macd_zero_filter, cooldown_bars=macd_cooldown,
+            use_regime_filter=macd_regime_filter, confidence_threshold=macd_confidence,
+            use_200_ema_filter=macd_ema_filter,
+            )
+            strategy.fit_confidence_model(train_data)   # train on historical only
+            result_df = strategy.generate_signals(test_data)  # evaluate on unseen data
+
+            fig = plot_macd_crossover(result_df)
+            st.plotly_chart(fig, use_container_width=True)
+
+            # Strategy daily returns: signal * next-day close return
+            # Use shift(-1) to get the next day's return for each signal
+            next_day_return = result_df['Close'].pct_change().shift(-1)
+            strategy_returns = result_df['signal'] * next_day_return
+            strategy_returns = strategy_returns.dropna()
+
+            # Sharpe ratio (annualized, assuming 252 trading days)
+            sharpe = (strategy_returns.mean() / strategy_returns.std()) * np.sqrt(252)
+
+            # Max drawdown
+            cumulative = (1 + strategy_returns).cumprod()
+            rolling_max = cumulative.cummax()
+            drawdown = (cumulative - rolling_max) / rolling_max
+            max_drawdown = drawdown.min()  # most negative value
+
+            st.subheader("Out-of-Sample Performance (test set only)")
+            col1, col2, col3, col4 = st.columns(4)
+            col1.metric("Symbol", macd_symbol.upper())
+            col2.metric("Buy Signals", int((result_df['signal'] == 1).sum()))
+            col3.metric("Sharpe Ratio", f"{sharpe:.2f}")
+            col4.metric("Max Drawdown", f"{max_drawdown:.1%}")
+            st.caption("Metrics are computed on the out-of-sample test set only. The ML confidence model was trained on the training set and has never seen this data.")
+
+            st.session_state['macd_signals'] = result_df
+
+            available = {}
+            if 'macd_signals' in st.session_state:
+                available['MACD Crossover'] = st.session_state['macd_signals']
+            if 'rsi_signals' in st.session_state:
+                available['RSI Divergence'] = st.session_state['rsi_signals']
+            if 'bb_signals' in st.session_state:
+                available['Bollinger Bands'] = st.session_state['bb_signals']
+
+            if len(available) >= 2:
+                st.subheader("Strategy Comparison")
+                rows = []
+                for name, df in available.items():
+                    rows.append({
+                        'Strategy': name,
+                        'Buy Signals': int((df['signal'] == 1).sum()),
+                        'Sell Signals': int((df['signal'] == -1).sum()),
+                        'Date Range': f"{df.index[0].date()} → {df.index[-1].date()}",
+                    })
+                st.dataframe(pd.DataFrame(rows), use_container_width=True)
+
+            csv = result_df.to_csv(index=True).encode('utf-8')
+            st.download_button("Download Signal Data (CSV)", csv, f"macd_{macd_symbol}.csv", "text/csv")
+
+        except Exception as e:
+            st.error(f"Error: {e}")
+            
 
 # =============================================================================
 # STRATEGY LIBRARY PAGE
