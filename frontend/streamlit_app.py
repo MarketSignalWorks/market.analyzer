@@ -6,6 +6,7 @@ Streamlit Frontend
 import streamlit as st
 import requests
 import pandas as pd
+import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
 from datetime import datetime, timedelta
@@ -571,13 +572,13 @@ elif page == "⚡ Strategy Builder":
     col1, col2 = st.columns(2)
 
     with col1:
-        st.subheader("Left Column Controls")
+        st.subheader("Data Source")
         macd_symbol = st.text_input("Symbol", value="SPY", key="macd_symbol")
         macd_start = st.date_input("Start Date", key="macd_start")
         macd_end = st.date_input("End Date", key="macd_end")
 
     with col2:
-        st.subheader("Right Column Controls")
+        st.subheader("Strategy Parameters")
         macd_fast = st.slider("Fast Period", min_value=5, max_value=50, value=12, key="macd_fast")
         macd_slow = st.slider("Slow Period", min_value=10, max_value=100, value=26, key="macd_slow")
         macd_signal = st.slider("Signal Period", min_value=3, max_value=20, value=9, key="macd_signal")
@@ -628,8 +629,6 @@ elif page == "⚡ Strategy Builder":
             fig = plot_macd_crossover(result_df)
             st.plotly_chart(fig, use_container_width=True)
 
-            import numpy as np
-
             # Strategy daily returns: signal * next-day close return
             # Use shift(-1) to get the next day's return for each signal
             next_day_return = result_df['Close'].pct_change().shift(-1)
@@ -672,7 +671,7 @@ elif page == "⚡ Strategy Builder":
                         'Buy Signals': int((df['signal'] == 1).sum()),
                         'Sell Signals': int((df['signal'] == -1).sum()),
                         'Date Range': f"{df.index[0].date()} → {df.index[-1].date()}",
-        })
+                    })
                 st.dataframe(pd.DataFrame(rows), use_container_width=True)
 
             csv = result_df.to_csv(index=True).encode('utf-8')
