@@ -566,7 +566,7 @@ elif page == "⚡ Strategy Builder":
 
     st.markdown("---")
     st.subheader("MACD Crossover Strategy")
-    st.markdown("Detect divergences between price and RSI momentum to catch early reversals.")
+    st.markdown("Measures the relationship between two exponential moving averages of price")
 
     col1, col2 = st.columns(2)
 
@@ -597,10 +597,14 @@ elif page == "⚡ Strategy Builder":
         st.write("Running MACD Crossover analysis...")
 
         try:
+            from backend.data.fetcher import fetch_ohlcv
+            from backend.strategies.macd_crossover import MACDCrossoverStrategy
+            from frontend.ui.charts import plot_macd_crossover
+            
             if macd_fast >= macd_slow:
                 st.error("Fast period must be less than slow period.")
                 st.stop()
-            data = fetch_ohlcv(symbol, start, end)
+            data = fetch_ohlcv(macd_symbol, macd_start, macd_end)
             if len(data) < 220:
                 st.error("Select a longer date range — at least 220 bars of data required for the 200 EMA to be meaningful. Try expanding your date range to cover 1+ year.")
                 st.stop()
@@ -643,7 +647,7 @@ elif page == "⚡ Strategy Builder":
 
             st.subheader("Out-of-Sample Performance (test set only)")
             col1, col2, col3, col4 = st.columns(4)
-            col1.metric("Symbol", symbol.upper())
+            col1.metric("Symbol", macd_symbol.upper())
             col2.metric("Buy Signals", int((result_df['signal'] == 1).sum()))
             col3.metric("Sharpe Ratio", f"{sharpe:.2f}")
             col4.metric("Max Drawdown", f"{max_drawdown:.1%}")
@@ -669,10 +673,10 @@ elif page == "⚡ Strategy Builder":
                         'Sell Signals': int((df['signal'] == -1).sum()),
                         'Date Range': f"{df.index[0].date()} → {df.index[-1].date()}",
         })
-            st.dataframe(pd.DataFrame(rows), use_container_width=True)
+                st.dataframe(pd.DataFrame(rows), use_container_width=True)
 
             csv = result_df.to_csv(index=True).encode('utf-8')
-            st.download_button("Download Signal Data (CSV)", csv, f"macd_{symbol}.csv", "text/csv")
+            st.download_button("Download Signal Data (CSV)", csv, f"macd_{macd_symbol}.csv", "text/csv")
 
         except Exception as e:
             st.error(f"Error: {e}")
