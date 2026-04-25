@@ -342,3 +342,115 @@ def plot_macd_crossover(data: pd.DataFrame) -> go.Figure:
     fig.update_xaxes(rangeslider_visible=False)
 
     return fig
+
+def plot_vwap_reversion(data: pd.DataFrame) -> go.Figure:
+
+    fig = make_subplots(
+        rows=2, cols=1,
+        row_heights=[0.65, 0.35],
+        shared_xaxes=True,
+        vertical_spacing=0.03
+    )
+
+    # Panel 1: Candlestick
+    fig.add_trace(go.Candlestick(
+        x=data.index,
+        open=data['Open'],
+        high=data['High'],
+        low=data['Low'],
+        close=data['Close'],
+        name='Price',
+        increasing_line_color='#3fb950',
+        decreasing_line_color='#ff6b6b'
+    ), row=1, col=1)
+
+    fig.add_trace(go.Scatter(
+        x=data.index, y=data['vwap'],
+        line=dict(color='#a78bfa', width=2),
+        name='VWAP'
+    ), row=1, col=1)
+
+    fig.add_trace(go.Scatter(
+        x=data.index, y=data['upper_band'],
+        line=dict(color='rgba(167,139,250,0.4)', width=1, dash='dot'),
+        name='Upper Band'
+    ), row=1, col=1)
+
+    fig.add_trace(go.Scatter(
+        x=data.index, y=data['lower_band'],
+        line=dict(color='rgba(167,139,250,0.4)', width=1, dash='dot'),
+        name='Lower Band'
+    ), row=1, col=1)
+
+    entries = data[(data['signal'].diff() != 0) & (data['signal'] != 0)]
+
+    long_entries  = entries[entries['signal'] == 1]
+    short_entries = entries[entries['signal'] == -1]
+
+    fig.add_trace(go.Scatter(
+        x=long_entries.index,
+        y=long_entries['Low'] * 0.993,
+        mode='markers',
+        marker=dict(symbol='triangle-up', size=10, color='#3fb950'),
+        name='Long Entry'
+    ), row=1, col=1)
+
+    fig.add_trace(go.Scatter(
+        x=short_entries.index,
+        y=short_entries['High'] * 1.007,
+        mode='markers',
+        marker=dict(symbol='triangle-down', size=10, color='#ff6b6b'),
+        name='Short Entry'
+    ), row=1, col=1)
+
+    # Panel 2: Volume
+    green_mask = data['Close'] > data['Open']
+    vol_colors = [
+        'rgba(63,185,80,0.6)' if g else 'rgba(255,107,107,0.6)'
+        for g in green_mask
+    ]
+
+    fig.add_trace(go.Bar(
+        x=data.index,
+        y=data['Volume'],
+        marker_color=vol_colors,
+        name='Volume',
+        showlegend=True
+    ), row=2, col=1)
+
+    fig.add_trace(go.Scatter(
+        x=data.index, y=data['avg_volume'],
+        line=dict(color='#f0c040', width=1.5, dash='dot'),
+        name='Avg Volume'
+    ), row=2, col=1)
+
+    spike_mask = (data['volume_ratio'] > data['volume_multiplier']) & (data['signal'] != 0)
+    spikes = data[spike_mask]
+
+    fig.add_trace(go.Scatter(
+        x=spikes.index,
+        y=spikes['Volume'] * 1.05,
+        mode='markers',
+        marker=dict(symbol='star', size=8, color='#f0c040'),
+        name='Vol Spike'
+    ), row=2, col=1)
+
+    # Layout
+    title = f"VWAP Reversion — {data.index[0].date()} to {data.index[-1].date()}"
+
+    fig.update_layout(
+        template='plotly_dark',
+        paper_bgcolor='#0a0e14',
+        plot_bgcolor='#0a0e14',
+        title=title,
+        yaxis_title='Price ($)',
+        yaxis2_title='Volume',
+        height=700,
+        margin=dict(l=0, r=0, t=50, b=0),
+        legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='left', x=0),
+        barmode='overlay'
+    )
+
+    fig.update_xaxes(rangeslider_visible=False)
+
+    return fig
