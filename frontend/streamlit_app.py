@@ -679,7 +679,152 @@ elif page == "⚡ Strategy Builder":
 
         except Exception as e:
             st.error(f"Error: {e}")
-            
+
+
+    # =========================================================================
+    # VWAP REVERSION STRATEGY
+    # =========================================================================
+
+    st.markdown("---")
+    st.subheader("VWAP Reversion Strategy")
+    st.markdown(
+        "Trade mean-reversion signals using Volume-Weighted Average Price (VWAP): "
+        "enter when price deviates significantly from VWAP on above-average volume, "
+        "exit after a fixed holding period or when price reverts."
+    )
+
+    vwap_left, vwap_right = st.columns(2)
+
+    with vwap_left:
+        vwap_symbol = st.text_input("Symbol", value="SPY", key="vwap_symbol")
+        vwap_start = st.date_input(
+            "Start Date",
+            value=datetime.now() - timedelta(days=730),
+            key="vwap_start",
+        )
+        vwap_end = st.date_input(
+            "End Date",
+            value=datetime.now(),
+            key="vwap_end",
+        )
+
+    with vwap_right:
+        vwap_period = st.slider(
+            "VWAP Period",
+            min_value=5,
+            max_value=50,
+            value=20,
+            key="vwap_period",
+        )
+        vwap_dev = st.slider(
+            "Deviation threshold (fraction)",
+            min_value=0.005,
+            max_value=0.05,
+            value=0.015,
+            step=0.001,
+            key="vwap_dev",
+        )
+        vwap_vol_mult = st.slider(
+            "Volume Multiplier",
+            min_value=1.0,
+            max_value=3.0,
+            value=1.5,
+            step=0.1,
+            key="vwap_vol_mult",
+        )
+        vwap_hold = st.slider(
+            "Holding Period (bars)",
+            min_value=3,
+            max_value=30,
+            value=10,
+            key="vwap_hold",
+        )
+        vwap_regime = st.checkbox(
+            "Regime filter (ranging-markets only)",
+            value=True,
+            key="vwap_regime",
+        )
+
+    if st.button("Run VWAP Reversion", type="primary", key="vwap_run"):
+        try:
+            from backend.data.fetcher import fetch_ohlcv
+            from backend.strategies.vwap_reversion import VWAPReversionStrategy
+            from frontend.ui.charts import plot_vwap_reversion
+
+            data = fetch_ohlcv(vwap_symbol, vwap_start, vwap_end)
+            if len(data) < 60:
+                st.error("Select at least 60 bars of data.")
+                st.stop()
+
+            # 70/30 split — no ML model to train, but still show out-of-sample performance
+            split_idx = int(len(data) * 0.70)
+            train_data = data.iloc[:split_idx].copy()
+            test_data  = data.iloc[split_idx:].copy()
+
+            st.caption(
+                f"Training: {train_data.index[0].date()} → {train_data.index[-1].date()} "
+                f"({len(train_data)} bars) | "
+                f"Test: {test_data.index[0].date()} → {test_data.index[-1].date()} "
+                f"({len(test_data)} bars)"
+            )
+
+            strategy = VWAPReversionStrategy(
+                vwap_period=vwap_period,
+                deviation_threshold=vwap_dev,
+                volume_multiplier=vwap_vol_mult,
+                holding_period=vwap_hold,
+                use_regime_filter=vwap_regime,
+            )
+            result_df = strategy.generate_signals(test_data)
+
+            fig = plot_vwap_reversion(result_df)
+            st.plotly_chart(fig, use_container_width=True)
+
+            next_day_return = result_df['Close'].pct_change().shift(-1)
+            strategy_returns = (result_df['signal'] * next_day_return).dropna()
+            sharpe = (strategy_returns.mean() / strategy_returns.std()) * np.sqrt(252)
+            cumulative = (1 + strategy_returns).cumprod()
+            max_drawdown = ((cumulative - cumulative.cummax()) / cumulative.cummax()).min()
+
+            st.subheader("Out-of-Sample Performance")
+            col1, col2, col3, col4 = st.columns(4)
+            col1.metric("Symbol", vwap_symbol.upper())
+            entries = int(((result_df['signal'] != 0) & (result_df['signal'].shift(1) == 0)).sum())
+            col2.metric("Entry Signals", entries)
+            col3.metric("Sharpe Ratio", f"{sharpe:.2f}")
+            col4.metric("Max Drawdown", f"{max_drawdown:.1%}")
+
+            st.session_state['vwap_signals'] = result_df
+
+            # Strategy comparison panel (4-way now)
+            available = {}
+            if 'vwap_signals' in st.session_state:
+                available['VWAP Reversion'] = st.session_state['vwap_signals']
+            if 'macd_signals' in st.session_state:
+                available['MACD Crossover'] = st.session_state['macd_signals']
+            if 'rsi_signals' in st.session_state:
+                available['RSI Divergence'] = st.session_state['rsi_signals']
+            if 'bb_signals' in st.session_state:
+                available['Bollinger Bands'] = st.session_state['bb_signals']
+
+            if len(available) >= 2:
+                st.subheader("Strategy Comparison")
+                rows = []
+                for name, df in available.items():
+                    rows.append({
+                        'Strategy': name,
+                        'Buy Signals': int((df['signal'] == 1).sum()),
+                        'Sell Signals': int((df['signal'] == -1).sum()),
+                        'Date Range': f"{df.index[0].date()} → {df.index[-1].date()}",
+                    })
+                st.dataframe(pd.DataFrame(rows), use_container_width=True)
+
+            csv = result_df.to_csv(index=True).encode('utf-8')
+            st.download_button("Download Signal Data (CSV)", csv, f"vwap_{vwap_symbol}.csv", "text/csv")
+
+        except Exception as e:
+            st.error(f"Error: {e}")
+
 
 # =============================================================================
 # STRATEGY LIBRARY PAGE
