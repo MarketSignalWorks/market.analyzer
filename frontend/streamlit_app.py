@@ -21,103 +21,13 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for dark theme styling
+# STRATEX dark theme
 st.markdown("""
 <style>
-    /* Dark theme overrides */
-    .stApp {
-        background-color: #0a0e14;
-    }
-    
-    /* Metric cards */
-    .metric-card {
-        background: #0d1117;
-        border: 1px solid rgba(255,255,255,0.08);
-        border-radius: 12px;
-        padding: 20px;
-        text-align: center;
-    }
-    
-    .metric-value {
-        font-size: 2rem;
-        font-weight: 600;
-        font-family: 'JetBrains Mono', monospace;
-    }
-    
-    .metric-value.positive { color: #3fb950; }
-    .metric-value.negative { color: #ff6b6b; }
-    .metric-value.cyan { color: #00d4aa; }
-    
-    .metric-label {
-        color: #ffffff;
-        font-size: 0.875rem;
-    }
-    
-    /* Section headers */
-    .section-header {
-        color: #e6edf3;
-        font-size: 1.25rem;
-        font-weight: 600;
-        margin-bottom: 1rem;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-    
-    .section-icon {
-        color: #00d4aa;
-    }
-    
-    /* Strategy cards */
-    .strategy-card {
-        background: #151b23;
-        border: 1px solid rgba(255,255,255,0.08);
-        border-radius: 8px;
-        padding: 16px;
-        margin-bottom: 8px;
-    }
-    
-    .strategy-name {
-        font-weight: 600;
-        color: #e6edf3;
-    }
-    
-    .strategy-type {
-        color: #ffffff;
-        font-size: 0.75rem;
-        text-transform: capitalize;
-    }
-    
-    /* SQL code display */
-    .sql-display {
-        background: #0d1117;
-        border: 1px solid rgba(255,255,255,0.08);
-        border-radius: 8px;
-        padding: 16px;
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 0.8rem;
-        color: #00d4aa;
-        overflow-x: auto;
-    }
-    
-    /* Type badge */
-    .type-badge {
-        display: inline-block;
-        padding: 4px 8px;
-        background: #1a222d;
-        border-radius: 4px;
-        font-size: 0.75rem;
-        color: #8b949e;
-    }
-    
-    /* Hide Streamlit branding */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    
-    /* Sidebar styling */
-    .css-1d391kg {
-        background-color: #0d1117;
-    }
+    .stApp { background-color: #0a0e14; }
+    #MainMenu { visibility: hidden; }
+    footer { visibility: hidden; }
+    .css-1d391kg { background-color: #0d1117; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -205,7 +115,7 @@ with st.sidebar:
     
     page = st.radio(
         "Navigation",
-        ["◉ Dashboard", "⚡ Strategy Builder", "◫ Strategy Library", "◈ Backtest Results", "◇ SQL Reports"],
+        ["◉ Dashboard", "⚡ Strategy Builder", "▦ Strategy Library", "▣ Backtest Results", "▤ SQL Reports"],
         label_visibility="collapsed"
     )
     
@@ -830,7 +740,7 @@ elif page == "⚡ Strategy Builder":
 # STRATEGY LIBRARY PAGE
 # =============================================================================
 
-elif page == "◫ Strategy Library":
+elif page == "▦ Strategy Library":
     st.title("Strategy Library")
     st.markdown("Manage and backtest your saved trading strategies")
     
@@ -839,7 +749,7 @@ elif page == "◫ Strategy Library":
     templates = fetch_templates()
     
     if not strategies:
-        st.info("No strategies saved yet. Create a strategy in the Strategy Builder.")
+        st.info("No strategies saved yet. Strategies are saved automatically when you run a backtest from Strategy Builder.")
     else:
         col1, col2 = st.columns([1, 2])
         
@@ -912,7 +822,7 @@ elif page == "◫ Strategy Library":
 # BACKTEST RESULTS PAGE
 # =============================================================================
 
-elif page == "◈ Backtest Results":
+elif page == "▣ Backtest Results":
     st.title("Backtest Results")
     
     result = st.session_state.get('backtest_result')
@@ -941,7 +851,7 @@ elif page == "◈ Backtest Results":
         st.markdown("---")
         
         # Charts
-        tab1, tab2, tab3 = st.tabs(["📈 Equity Curve", "📉 Drawdown", "📊 Monthly Returns"])
+        tab1, tab2, tab3 = st.tabs(["Equity Curve", "Drawdown", "Monthly Returns"])
         
         with tab1:
             if result.get('equity_curve'):
@@ -1084,7 +994,7 @@ elif page == "◈ Backtest Results":
 # SQL REPORTS PAGE
 # =============================================================================
 
-elif page == "◇ SQL Reports":
+elif page == "▤ SQL Reports":
     st.title("SQL Reports")
     st.markdown("Advanced analytics powered by complex SQL queries")
     
