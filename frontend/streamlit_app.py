@@ -102,10 +102,12 @@ def fetch_report(endpoint):
 
 @st.cache_data(ttl=15)
 def is_backend_up():
-    """Quick liveness probe for the Flask backend. Cached 15s to avoid hammering."""
+    """Probe whether the Flask backend is responding *and* has routes implemented.
+    A 404 (port up but route missing) counts as offline for UX purposes.
+    """
     try:
-        requests.get(f"{API_BASE}/strategies", timeout=0.5)
-        return True
+        r = requests.get(f"{API_BASE}/templates", timeout=0.5)
+        return r.status_code == 200 and isinstance(r.json(), dict)
     except Exception:
         return False
 
@@ -1325,7 +1327,9 @@ elif page == "◬ Project Status":
         ("Chart Library",       "frontend/ui/charts.py",          "Plotly candlestick + indicator overlays", True),
         ("Streamlit Frontend",  "frontend/streamlit_app.py",      "5 pages + sidebar nav + theme", True),
         ("Test Suite",          "tests/",                         "9 pytest smoke tests on strategies + charts", True),
-        ("Flask Backend API",   "backend/app.py",                 "REST endpoints for Library / Reports / Backtests", False),
+        ("Flask Backend API",   "backend/app.py",                 "REST endpoints for Library / Reports / Backtests (4 blueprints)", True),
+        ("Database Models",     "backend/models/models.py",       "SQLAlchemy models: Strategy, Backtest, Trade", True),
+        ("Strategy Registry",   "backend/strategies/registry.py", "Maps the 4 strategies to template definitions", True),
     ]
     for name, path, desc, done in _modules:
         badge_color = "#3fb950" if done else "#f0c040"
