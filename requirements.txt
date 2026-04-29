@@ -4,7 +4,10 @@ requests
 pandas
 numpy
 flask
+flask-cors
+flask-sqlalchemy
 sqlalchemy
 yfinance
 scikit-learn
 pytest
+pyarrow
