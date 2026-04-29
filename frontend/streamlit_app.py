@@ -271,13 +271,17 @@ if page == "◉ Dashboard":
 
 elif page == "⚡ Strategy Builder":
     st.title("Strategy Builder")
-    st.markdown("Configure and backtest trading strategies using pre-built templates")
-    
+    st.markdown("Configure and backtest trading strategies — scroll down for the four built-in strategies (Bollinger, RSI, MACD, VWAP). The template-based builder at the top requires the Flask backend.")
+
     templates = fetch_templates()
     symbols = fetch_symbols()
-    
+
     if not templates:
-        st.error("Could not load templates. Is the backend running?")
+        st.info(
+            "Backend offline — template-based builder unavailable. "
+            "Use the four strategies below (Bollinger / RSI / MACD / VWAP), "
+            "they fetch data from yfinance directly and don't need the backend."
+        )
     else:
         col1, col2 = st.columns(2)
         
@@ -900,11 +904,44 @@ elif page == "▦ Strategy Library":
 
 elif page == "▣ Backtest Results":
     st.title("Backtest Results")
-    
+
     result = st.session_state.get('backtest_result')
-    
+
+    # Show what the user has run in Strategy Builder, even when the backend-driven
+    # backtest result is missing. This bridges the gap between the two flows.
+    _builder_keys = {
+        "bb_signals":   "Bollinger Bands",
+        "rsi_signals":  "RSI Divergence",
+        "macd_signals": "MACD Crossover",
+        "vwap_signals": "VWAP Reversion",
+    }
+    _runs = {label: st.session_state[k] for k, label in _builder_keys.items() if k in st.session_state}
+
     if not result:
-        st.info("No results yet. Configure and run a backtest from the Strategy Builder or Library to see results here.")
+        if _runs:
+            st.success(f"You've run {len(_runs)} strategy(ies) in Strategy Builder. Quick view below.")
+            st.caption(
+                "Full backend-driven backtest analytics (equity curve, drawdown chart, monthly returns, trade history) "
+                "require the Flask backend to be running with routes implemented."
+            )
+            rows = []
+            for label, df in _runs.items():
+                rows.append({
+                    "Strategy":     label,
+                    "Buy Signals":  int((df["signal"] == 1).sum()),
+                    "Sell Signals": int((df["signal"] == -1).sum()),
+                    "Bars":         len(df),
+                    "Date Range":   f"{df.index[0].date()} → {df.index[-1].date()}",
+                })
+            st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+            st.markdown("---")
+            st.info(
+                "To get the full Backtest Results view (equity curve, trade log, etc.), "
+                "the Flask backend at `localhost:5000` needs to be running and serving "
+                "`POST /api/backtest`. That endpoint is currently a stub — see `backend/app.py`."
+            )
+        else:
+            st.info("No results yet. Run a strategy in the Strategy Builder to see a quick summary here, or run a backend-driven backtest from the Library for the full analytics view.")
     else:
         st.caption(f"Executed in {result.get('execution_time_ms', 0)}ms")
         
