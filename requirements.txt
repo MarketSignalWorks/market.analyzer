@@ -7,3 +7,4 @@ flask
 sqlalchemy
 yfinance
 scikit-learn
+pytest
