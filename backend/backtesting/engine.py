@@ -1,10 +1,16 @@
 """
 Core backtesting engine.
+
+Walks the price data bar by bar. On each bar the strategy only sees data up
+to and including that bar (no look-ahead), and any trade fills at that bar's
+close. A position still open after the last bar is closed at the final close
+so the trade log and trade metrics include it.
 """
 
-# TODO: Implement backtesting 
 from __future__ import annotations
+
 from typing import Any, Dict, List, Tuple
+
 import pandas as pd
 
 
@@ -24,6 +30,12 @@ def _validate_data(data: pd.DataFrame) -> None:
     if not isinstance(data.index, pd.DatetimeIndex):
         raise EngineError("Price data index must be a pandas DatetimeIndex.")
 
+    if not data.index.is_monotonic_increasing:
+        raise EngineError("Price data index must be sorted in ascending date order.")
+
+    if data.index.has_duplicates:
+        raise EngineError("Price data index contains duplicate timestamps.")
+
     if data["Close"].isna().any():
         raise EngineError("Price data contains NaN values in the Close column.")
 
@@ -42,6 +54,19 @@ def _normalize_signal(raw_signal: Any) -> int:
     if value < 0:
         return -1
     return 0
+
+
+def _close_open_position(portfolio: Any, price: float, timestamp: Any) -> None:
+    """Close any open position, using whichever method the portfolio provides."""
+    for name in ("close_open_position", "force_close"):
+        closer = getattr(portfolio, name, None)
+        if callable(closer):
+            closer(price, timestamp)
+            return
+    raise EngineError(
+        "Portfolio must implement force_close(price, timestamp) or "
+        "close_open_position(price, timestamp)."
+    )
 
 
 def run_backtest(
@@ -71,7 +96,12 @@ def run_backtest(
         current_timestamp = data.index[i]
         current_close = float(data["Close"].iloc[i])
 
-        signal_df = strategy.generate_signals(window)
+        try:
+            signal_df = strategy.generate_signals(window)
+        except Exception as e:
+            raise EngineError(
+                f"Strategy failed on bar {i} ({current_timestamp.date()}): {e}"
+            ) from e
 
         if not isinstance(signal_df, pd.DataFrame):
             raise EngineError(
@@ -92,14 +122,13 @@ def run_backtest(
         elif signal == -1:
             portfolio.execute_trade("sell", current_close, current_timestamp)
 
+        # On the final bar, close anything still open before marking equity,
+        # so the last point includes the exit commission and the trade is logged.
+        if i == len(data) - 1:
+            _close_open_position(portfolio, current_close, current_timestamp)
+
         portfolio_value = portfolio.get_portfolio_value(current_close)
         equity_curve.append(float(portfolio_value))
-
-    if hasattr(portfolio, "close_open_position"):
-        last_timestamp = data.index[-1]
-        last_close = float(data["Close"].iloc[-1])
-        portfolio.close_open_position(last_close, last_timestamp)
-        equity_curve[-1] = float(portfolio.get_portfolio_value(last_close))
 
     trade_log = portfolio.get_trade_log()
 

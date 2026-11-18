@@ -65,13 +65,18 @@ class VWAPReversionStrategy(BaseStrategy):
         valid_mask = features.notna().all(axis=1)
         X = features[valid_mask].values
 
+        regime = pd.Series(1, index=data.index, dtype=int)
+        # KMeans needs at least as many samples as clusters; early in a
+        # backtest the rolling features are still NaN.
+        if len(X) < 2:
+            return regime
+
         kmeans = KMeans(n_clusters=2, random_state=42, n_init=10)
         kmeans.fit(X)
 
         trending_cluster = int(np.argmin(kmeans.cluster_centers_[:, 0]))
         mapped_labels = np.where(kmeans.labels_ == trending_cluster, 0, 1)
 
-        regime = pd.Series(1, index=data.index, dtype=int)
         regime[valid_mask] = mapped_labels
 
         return regime

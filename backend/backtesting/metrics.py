@@ -328,6 +328,9 @@ def compute_max_drawdown_with_dates(
         return 0.0, None, None
     
     max_drawdown_pct = np.min(drawdowns) * 100.0
+    if max_drawdown_pct == 0:
+        # Equity never fell below a prior peak: there is no drawdown period.
+        return 0.0, None, None
     start_date, end_date = get_max_drawdown_dates(equity_curve, dates, max_idx)
     
     return max_drawdown_pct, start_date, end_date
@@ -542,8 +545,9 @@ def compute_beta(
     if len(strategy_returns) < 2 or len(spy_returns) < 2:
         return 0.0
     
+    # np.cov uses the sample estimator (ddof=1); the variance must match.
     covariance = np.cov(strategy_returns, spy_returns)[0][1]
-    spy_variance = np.var(spy_returns)
+    spy_variance = np.var(spy_returns, ddof=1)
     
     if spy_variance == 0:
         return 0.0
@@ -573,7 +577,9 @@ def compute_alpha(
         Alpha as percentage (annualized)
     """
     trading_days = len(equity_curve) - 1
-    
+    if trading_days <= 0 or len(spy_prices) < 2 or spy_prices.iloc[0] <= 0:
+        return 0.0
+
     ann_strategy_return = compute_annualized_return(
         equity_curve, initial_capital, trading_days
     ) / 100.0  # Convert to decimal
@@ -588,6 +594,39 @@ def compute_alpha(
     alpha = (ann_strategy_return - expected_return) * 100.0  # Convert back to percentage
     
     return alpha
+
+
+def _align_benchmark(
+    equity_curve: np.ndarray,
+    benchmark_prices: pd.Series,
+    dates: Optional[List[str]] = None,
+) -> Tuple[np.ndarray, pd.Series]:
+    """
+    Line the benchmark up with the equity curve.
+
+    When dates are available and the benchmark has a date index, align by
+    calendar date (forward-filling benchmark gaps such as market holidays that
+    the traded symbol still has bars for). Otherwise fall back to aligning by
+    position.
+    """
+    if (
+        dates is not None
+        and len(dates) == len(equity_curve)
+        and isinstance(benchmark_prices.index, pd.DatetimeIndex)
+    ):
+        bench = benchmark_prices.copy()
+        if bench.index.tz is not None:
+            bench.index = bench.index.tz_localize(None)
+        bench.index = bench.index.normalize()
+        bench = bench[~bench.index.duplicated(keep="last")].sort_index()
+
+        target = pd.to_datetime([str(d)[:10] for d in dates])
+        aligned = bench.reindex(target).ffill()
+        mask = aligned.notna().to_numpy()
+        return equity_curve[mask], aligned[mask]
+
+    min_len = min(len(equity_curve), len(benchmark_prices))
+    return equity_curve[:min_len], benchmark_prices.iloc[:min_len]
 
 
 # ============================================================================
@@ -670,11 +709,10 @@ def compute_all(
     alpha = 0.0
     beta = 0.0
     if benchmark_prices is not None and len(benchmark_prices) > 0:
-        # Align benchmark with equity curve
-        min_len = min(len(equity_curve), len(benchmark_prices))
-        aligned_equity = equity_curve[:min_len]
-        aligned_benchmark = benchmark_prices.iloc[:min_len]
-        
+        aligned_equity, aligned_benchmark = _align_benchmark(
+            equity_curve, benchmark_prices, dates
+        )
+
         if len(aligned_equity) >= 2:
             beta = compute_beta(aligned_equity, aligned_benchmark)
             alpha = compute_alpha(aligned_equity, aligned_benchmark, initial_capital, risk_free_rate)

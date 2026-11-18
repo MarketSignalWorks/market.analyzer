@@ -162,6 +162,9 @@ def run_backtest_endpoint():
     if data.empty:
         return jsonify({"error": f"no price data for {symbol} in {start_date}..{end_date}"}), 404
 
+    # Fetch the benchmark up front so network time isn't counted as backtest time.
+    benchmark = fetch_benchmark(start_date, end_date)
+
     started = time.perf_counter()
     try:
         equity_curve, trade_log = run_backtest(
@@ -174,7 +177,6 @@ def run_backtest_endpoint():
         return jsonify({"error": str(e)}), 400
 
     dates = [_iso(d) for d in data.index]
-    benchmark = fetch_benchmark(start_date, end_date)
     metrics = compute_all(
         equity_curve=equity_curve,
         trade_log=trade_log,
