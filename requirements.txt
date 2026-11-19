@@ -9,4 +9,5 @@ flask-sqlalchemy
 sqlalchemy
 yfinance
 scikit-learn
+pytest
 pyarrow
